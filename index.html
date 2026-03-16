@@ -13,129 +13,36 @@
   </header>
 
   <main>
-    <!-- Tab Navigation -->
-    <nav class="tabs">
-      <button class="tab-btn active" data-tab="tab-offline">Offline</button>
-      <button class="tab-btn" data-tab="tab-online">Online</button>
-    </nav>
+    <p class="form-hint" style="margin-bottom: 14px;">
+      Works fully offline &mdash; no internet connection required.
+      Decode and verify Solana transaction messages without connecting to any server.
+    </p>
 
-    <!-- Offline Tab (default) -->
-    <section id="tab-offline" class="tab-content active">
-      <p class="form-hint" style="margin-bottom: 14px;">
-        Works fully offline &mdash; no internet connection required.
-        Decode and verify Solana transaction messages without connecting to any server.
-      </p>
+    <h2>Decode Serialized Message</h2>
+    <p class="form-hint" style="margin-bottom: 14px;">
+      Paste raw message bytes to decode all instructions and compute the message hash.
+    </p>
 
-      <div>
-        <h2>Decode Serialized Message</h2>
-        <p class="form-hint" style="margin-bottom: 14px;">
-          Paste raw message bytes to decode all instructions and compute the Ledger hash.
-        </p>
-
-        <div class="form-group">
-          <label>Format</label>
-          <div class="format-toggle">
-            <button type="button" class="btn-sm format-btn active" id="decode-fmt-hex">Hex</button>
-            <button type="button" class="btn-sm format-btn" id="decode-fmt-base64">Base64</button>
-          </div>
-        </div>
-
-        <div class="form-group">
-          <label for="decode-input">Serialized Message</label>
-          <textarea id="decode-input" rows="6" placeholder="Paste hex or base64 encoded message bytes here"></textarea>
-        </div>
-
-        <button type="button" id="decode-btn" class="btn">Decode &amp; Hash</button>
+    <div class="form-group">
+      <label>Format</label>
+      <div class="format-toggle">
+        <button type="button" class="btn-sm format-btn active" id="decode-fmt-hex">Hex</button>
+        <button type="button" class="btn-sm format-btn" id="decode-fmt-base64">Base64</button>
       </div>
-
-      <div id="decode-result" class="hidden"></div>
-    </section>
-
-    <!-- Online Tab -->
-    <section id="tab-online" class="tab-content">
-      <p class="form-hint" style="margin-bottom: 14px;">
-        Connect to a Solana RPC to load Squads multisig info, browse transactions,
-        and look up on-chain approval hashes. Requires an internet connection.
-      </p>
-
-      <form id="online-form" autocomplete="off">
-        <div class="form-group">
-          <label for="rpc-url">Solana RPC URL</label>
-          <input
-            type="text"
-            id="rpc-url"
-            value="https://solana-rpc.publicnode.com"
-            placeholder="https://solana-rpc.publicnode.com"
-            required
-          />
-          <small class="form-hint">
-            Suggested: <code>https://solana-rpc.publicnode.com</code> &middot;
-            <code>https://solana.rpc.subquery.network/public</code>
-          </small>
-        </div>
-
-        <div class="form-group">
-          <label class="checkbox-label">
-            <input type="checkbox" id="use-create-key" />
-            Use createKey (derive multisig PDA)
-          </label>
-        </div>
-
-        <div class="form-group">
-          <label for="multisig-address" id="address-label">Multisig Address</label>
-          <input
-            type="text"
-            id="multisig-address"
-            placeholder="Enter multisig PDA address"
-            required
-          />
-          <small class="form-hint">
-            Enter the multisig PDA address (not the vault address).
-            You can also enter a vault address or transaction PDA &mdash; the tool will try to auto-resolve the multisig.
-          </small>
-        </div>
-
-        <div class="form-group">
-          <label for="tx-limit">Transaction Limit</label>
-          <input
-            type="number"
-            id="tx-limit"
-            value="20"
-            min="1"
-            max="100"
-          />
-        </div>
-
-        <button type="submit" id="load-btn">Load Multisig</button>
-      </form>
-    </section>
-
-    <!-- Loading Indicator -->
-    <div id="loading" class="hidden">
-      <div class="spinner"></div>
-      <span>Loading...</span>
     </div>
+
+    <div class="form-group">
+      <label for="decode-input">Serialized Message</label>
+      <textarea id="decode-input" rows="6" placeholder="Paste hex or base64 encoded message bytes here"></textarea>
+    </div>
+
+    <button type="button" id="decode-btn" class="btn">Decode &amp; Hash</button>
 
     <!-- Error Display -->
     <div id="error" class="hidden"></div>
 
-    <!-- Results Container -->
-    <div id="results" class="hidden">
-      <!-- Multisig Info -->
-      <section id="multisig-info"></section>
-
-      <!-- Transaction List -->
-      <section id="transaction-list"></section>
-
-      <!-- Transaction Detail (shown when a tx is selected) -->
-      <section id="transaction-detail"></section>
-
-      <!-- Approval Hashes (shown when looking up past approvals) -->
-      <section id="approval-hashes" class="hidden"></section>
-    </div>
-
-    <!-- Debug Info (collapsed by default, at bottom) -->
-    <div id="debug-info" class="hidden"></div>
+    <!-- Decode Result -->
+    <div id="decode-result" class="hidden"></div>
   </main>
 
   <footer>
