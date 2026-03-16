@@ -1,0 +1,17 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": false,
+    "declaration": true,
+    "emitDeclarationOnly": true,
+    "outDir": "dist",
+    "rootDir": "src"
+  },
+  "include": [
+    "src/lib.ts",
+    "src/decoder.ts",
+    "src/hash-standalone.ts",
+    "src/bs58.ts",
+    "src/constants.ts"
+  ]
+}

@@ -9,8 +9,7 @@
 // instruction types (Squads, Compute Budget, System Program).
 // ============================================================================
 
-// @ts-ignore — bs58 has no type declarations
-import bs58 from "bs58";
+import { encode as bs58Encode } from "./bs58";
 import {
   bytesToHex,
   KNOWN_PROGRAMS,
@@ -151,7 +150,7 @@ class ByteReader {
 
   readPubkey(): string {
     const bytes = this.readBytes(32);
-    return bs58.encode(bytes);
+    return bs58Encode(bytes);
   }
 
   readU32LE(): number {
@@ -808,7 +807,7 @@ function decodeSystemProgram(data: Uint8Array): DecodedIxResult | null {
       if (data.length >= 52) {
         const lamports = readU64LE(data, 4);
         const space = readU64LE(data, 12);
-        const owner = bs58.encode(data.slice(20, 52));
+        const owner = bs58Encode(data.slice(20, 52));
         const sol = Number(lamports) / 1_000_000_000;
         return {
           decoded: `CreateAccount (${sol} SOL, ${space} bytes)`,
@@ -870,7 +869,7 @@ function decodeSystemProgram(data: Uint8Array): DecodedIxResult | null {
     case 0x06: {
       // InitializeNonceAccount: u32 discriminator + 32-byte authority pubkey
       if (data.length >= 36) {
-        const authority = bs58.encode(data.slice(4, 36));
+        const authority = bs58Encode(data.slice(4, 36));
         return {
           decoded: "InitializeNonceAccount",
           details: { Authority: authority },
@@ -882,7 +881,7 @@ function decodeSystemProgram(data: Uint8Array): DecodedIxResult | null {
     case 0x07: {
       // AuthorizeNonceAccount: u32 discriminator + 32-byte new authority
       if (data.length >= 36) {
-        const newAuthority = bs58.encode(data.slice(4, 36));
+        const newAuthority = bs58Encode(data.slice(4, 36));
         return {
           decoded: "AuthorizeNonceAccount",
           details: { "New Authority": newAuthority },

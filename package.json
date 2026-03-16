@@ -5,7 +5,9 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc && vite build && mv dist/index.html dist/squads-tx-hashes.html && cd dist && shasum -a 256 squads-tx-hashes.html > squads-tx-hashes.html.sha256"
+    "build": "tsc && vite build && mv dist/index.html dist/squads-tx-hashes.html && cd dist && shasum -a 256 squads-tx-hashes.html > squads-tx-hashes.html.sha256",
+    "build:lib": "vite build --config vite.config.lib.ts && tsc -p tsconfig.lib.json",
+    "build:all": "npm run build && npm run build:lib"
   },
   "dependencies": {
     "@solana/web3.js": "^1.98.0",

@@ -35,7 +35,7 @@ jobs:
       - name: Build
         env:
           VITE_APP_VERSION: ${{ steps.version.outputs.VERSION }}
-        run: npm run build
+        run: npm run build:all
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
@@ -45,6 +45,7 @@ jobs:
           files: |
             dist/squads-tx-hashes.html
             dist/squads-tx-hashes.html.sha256
+            dist/squads-decoder.js
 
       - name: Prepare GitHub Pages
         run: cp dist/squads-tx-hashes.html dist/index.html

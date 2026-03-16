@@ -13,8 +13,7 @@
 
 import { PublicKey } from "@solana/web3.js";
 import * as multisig from "@sqds/multisig";
-// @ts-ignore — bs58 has no type declarations but is bundled by @solana/web3.js
-import bs58 from "bs58";
+import { encode as bs58Encode, decode as bs58Decode } from "./bs58";
 import {
   SQUADS_PROGRAM_ID,
   DISCRIMINATOR_PROPOSAL_APPROVE,
@@ -326,7 +325,7 @@ export async function computeProposalVoteHash(
   const programIdKey = new PublicKey(SQUADS_PROGRAM_ID);
 
   // Decode blockhash from base58
-  const recentBlockhashBytes = bs58.decode(params.recentBlockhash);
+  const recentBlockhashBytes = bs58Decode(params.recentBlockhash);
   if (recentBlockhashBytes.length !== 32) {
     throw new Error(
       `Invalid blockhash/nonce: expected 32 bytes, got ${recentBlockhashBytes.length}`
@@ -368,7 +367,7 @@ export async function computeProposalVoteHash(
   const hashBytes = await sha256(messageBytes);
 
   // Base58 encode
-  const hash = bs58.encode(hashBytes);
+  const hash = bs58Encode(hashBytes);
 
   return {
     hash,
@@ -389,5 +388,5 @@ export async function hashRawMessage(
   messageBytes: Uint8Array
 ): Promise<string> {
   const hashBytes = await sha256(messageBytes);
-  return bs58.encode(hashBytes);
+  return bs58Encode(hashBytes);
 }
