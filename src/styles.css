@@ -1,0 +1,1260 @@
+/* ============================================================================
+   Squads TX Hashes - Styles
+   ============================================================================ */
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  line-height: 1.5;
+  color: #1a1a1a;
+  background: #f5f5f5;
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+/* ---------------------------------------------------------------------------
+   Header
+   --------------------------------------------------------------------------- */
+
+header {
+  text-align: center;
+  margin-bottom: 24px;
+  padding-bottom: 16px;
+  border-bottom: 2px solid #ddd;
+}
+
+header h1 {
+  font-size: 1.8rem;
+  font-weight: 700;
+  color: #111;
+}
+
+header .subtitle {
+  font-size: 0.9rem;
+  color: #666;
+  font-style: italic;
+}
+
+header .version {
+  font-size: 0.75rem;
+  color: #999;
+}
+
+/* ---------------------------------------------------------------------------
+   Tabs
+   --------------------------------------------------------------------------- */
+
+.tabs {
+  display: flex;
+  gap: 0;
+  margin-bottom: 20px;
+  border-bottom: 2px solid #ddd;
+}
+
+.tab-btn {
+  padding: 10px 24px;
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: #666;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -2px;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.tab-btn:hover {
+  color: #333;
+}
+
+.tab-btn.active {
+  color: #111;
+  border-bottom-color: #111;
+}
+
+.tab-content {
+  display: none;
+}
+
+.tab-content.active {
+  display: block;
+}
+
+/* ---------------------------------------------------------------------------
+   Forms
+   --------------------------------------------------------------------------- */
+
+.form-group {
+  margin-bottom: 14px;
+}
+
+.form-group label {
+  display: block;
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin-bottom: 4px;
+  color: #333;
+}
+
+.form-hint {
+  display: block;
+  margin-top: 4px;
+  font-size: 0.75rem;
+  color: #888;
+}
+
+.form-hint code {
+  background: #f3f4f6;
+  padding: 1px 4px;
+  border-radius: 2px;
+  font-size: 0.72rem;
+}
+
+.checkbox-label {
+  display: flex !important;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-weight: 500 !important;
+}
+
+.checkbox-label input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+}
+
+input[type="text"],
+input[type="number"],
+select,
+textarea {
+  width: 100%;
+  padding: 8px 12px;
+  font-size: 0.9rem;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  background: #fff;
+  font-family: inherit;
+}
+
+input[type="text"]:focus,
+input[type="number"]:focus,
+select:focus,
+textarea:focus {
+  outline: none;
+  border-color: #555;
+  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.05);
+}
+
+button[type="submit"],
+.btn {
+  display: inline-block;
+  padding: 10px 24px;
+  background: #111;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+button[type="submit"]:hover,
+.btn:hover {
+  background: #333;
+}
+
+button[type="submit"]:disabled,
+.btn:disabled {
+  background: #999;
+  cursor: not-allowed;
+}
+
+/* ---------------------------------------------------------------------------
+   Loading & Error
+   --------------------------------------------------------------------------- */
+
+#loading {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 16px;
+  color: #555;
+  font-size: 0.9rem;
+}
+
+.spinner {
+  width: 20px;
+  height: 20px;
+  border: 2px solid #ddd;
+  border-top-color: #333;
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+#error {
+  padding: 12px 16px;
+  background: #fef2f2;
+  border: 1px solid #fca5a5;
+  border-radius: 4px;
+  color: #b91c1c;
+  font-size: 0.9rem;
+  margin-bottom: 16px;
+}
+
+.hidden {
+  display: none !important;
+}
+
+/* ---------------------------------------------------------------------------
+   Results Container
+   --------------------------------------------------------------------------- */
+
+#results {
+  margin-top: 20px;
+}
+
+#results section {
+  margin-bottom: 24px;
+}
+
+/* ---------------------------------------------------------------------------
+   Multisig Info
+   --------------------------------------------------------------------------- */
+
+.info-card {
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  padding: 16px;
+}
+
+.info-card h2 {
+  font-size: 1.1rem;
+  font-weight: 700;
+  margin-bottom: 12px;
+  color: #111;
+}
+
+.info-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 6px 0;
+  border-bottom: 1px solid #f0f0f0;
+  font-size: 0.85rem;
+}
+
+.info-row:last-child {
+  border-bottom: none;
+}
+
+.info-label {
+  font-weight: 600;
+  color: #555;
+  flex-shrink: 0;
+  margin-right: 12px;
+}
+
+.info-value {
+  text-align: right;
+  word-break: break-all;
+  color: #111;
+}
+
+.mono {
+  font-family: "SF Mono", "Fira Code", "Fira Mono", "Roboto Mono", monospace;
+  font-size: 0.82rem;
+}
+
+/* ---------------------------------------------------------------------------
+   Members Table
+   --------------------------------------------------------------------------- */
+
+.members-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 8px;
+  font-size: 0.82rem;
+}
+
+.members-table th {
+  text-align: left;
+  padding: 6px 8px;
+  border-bottom: 2px solid #ddd;
+  font-weight: 600;
+  color: #555;
+  font-size: 0.8rem;
+}
+
+.members-table td {
+  padding: 6px 8px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.permission-badge {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 3px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  margin-right: 3px;
+}
+
+.permission-initiate {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+.permission-vote {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.permission-execute {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+/* ---------------------------------------------------------------------------
+   Transaction List
+   --------------------------------------------------------------------------- */
+
+.tx-group-header {
+  font-size: 0.95rem;
+  font-weight: 700;
+  margin: 16px 0 8px 0;
+  color: #333;
+}
+
+.tx-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.tx-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 0.82rem;
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+
+.tx-row:hover {
+  border-color: #999;
+}
+
+.tx-row.selected {
+  border-color: #111;
+  background: #fafafa;
+}
+
+.tx-index {
+  font-weight: 700;
+  color: #333;
+  font-family: "SF Mono", monospace;
+  min-width: 40px;
+}
+
+.tx-type {
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 3px;
+  background: #f3f4f6;
+  color: #555;
+  text-transform: uppercase;
+}
+
+.tx-creator {
+  color: #666;
+  font-family: "SF Mono", monospace;
+  font-size: 0.78rem;
+}
+
+.tx-approval {
+  margin-left: auto;
+  font-weight: 600;
+  font-size: 0.8rem;
+}
+
+/* Status Badges */
+.status-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 3px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.status-draft {
+  background: #f3f4f6;
+  color: #6b7280;
+}
+
+.status-active {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+.status-approved {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.status-executed {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.status-rejected {
+  background: #fef2f2;
+  color: #b91c1c;
+}
+
+.status-cancelled {
+  background: #f3f4f6;
+  color: #9ca3af;
+}
+
+.no-transactions {
+  padding: 16px;
+  text-align: center;
+  color: #999;
+  font-size: 0.9rem;
+}
+
+/* ---------------------------------------------------------------------------
+   Transaction Detail
+   --------------------------------------------------------------------------- */
+
+.detail-card {
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  padding: 16px;
+}
+
+.detail-card h2 {
+  font-size: 1.05rem;
+  font-weight: 700;
+  margin-bottom: 12px;
+  color: #111;
+}
+
+.detail-card h3 {
+  font-size: 0.9rem;
+  font-weight: 700;
+  margin: 16px 0 8px 0;
+  color: #333;
+}
+
+.vote-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+.vote-key {
+  font-family: "SF Mono", monospace;
+  font-size: 0.75rem;
+  padding: 2px 6px;
+  background: #f3f4f6;
+  border-radius: 3px;
+  color: #333;
+}
+
+.instruction-block {
+  margin: 8px 0;
+  padding: 10px;
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 4px;
+}
+
+.instruction-block h4 {
+  font-size: 0.82rem;
+  font-weight: 600;
+  margin-bottom: 6px;
+  color: #444;
+}
+
+.data-hex {
+  font-family: "SF Mono", monospace;
+  font-size: 0.75rem;
+  word-break: break-all;
+  color: #555;
+  padding: 6px 8px;
+  background: #f3f4f6;
+  border-radius: 3px;
+  margin-top: 4px;
+  max-height: 120px;
+  overflow-y: auto;
+}
+
+.account-list {
+  font-size: 0.78rem;
+  margin: 4px 0;
+}
+
+.account-list li {
+  font-family: "SF Mono", monospace;
+  padding: 2px 0;
+  color: #444;
+  list-style: none;
+}
+
+/* ---------------------------------------------------------------------------
+   Copy Button
+   --------------------------------------------------------------------------- */
+
+.copy-btn {
+  display: inline-block;
+  padding: 2px 8px;
+  font-size: 0.72rem;
+  background: #f3f4f6;
+  border: 1px solid #ddd;
+  border-radius: 3px;
+  cursor: pointer;
+  color: #555;
+  margin-left: 6px;
+  transition: background 0.15s;
+}
+
+.copy-btn:hover {
+  background: #e5e7eb;
+}
+
+.copy-btn.copied {
+  background: #dcfce7;
+  color: #166534;
+  border-color: #bbf7d0;
+}
+
+/* ---------------------------------------------------------------------------
+   Placeholder
+   --------------------------------------------------------------------------- */
+
+.placeholder-msg {
+  padding: 40px 20px;
+  text-align: center;
+  color: #999;
+}
+
+.placeholder-msg p {
+  margin-bottom: 8px;
+}
+
+/* ---------------------------------------------------------------------------
+   Footer
+   --------------------------------------------------------------------------- */
+
+footer {
+  text-align: center;
+  padding: 20px 0;
+  margin-top: 40px;
+  border-top: 1px solid #ddd;
+  font-size: 0.8rem;
+  color: #999;
+}
+
+footer a {
+  color: #666;
+}
+
+.disclaimer {
+  font-size: 0.72rem;
+  color: #999;
+  max-width: 600px;
+  margin: 8px auto 0;
+  line-height: 1.4;
+}
+
+/* ---------------------------------------------------------------------------
+   Debug Info
+   --------------------------------------------------------------------------- */
+
+details.debug-card {
+  background: #fefce8;
+  border: 1px solid #fde68a;
+  border-radius: 6px;
+  margin-top: 24px;
+  margin-bottom: 16px;
+}
+
+details.debug-card summary {
+  padding: 12px 16px;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #92400e;
+  cursor: pointer;
+  user-select: none;
+  list-style: none;
+}
+
+details.debug-card summary::before {
+  content: "\25b6  ";
+  font-size: 0.7rem;
+}
+
+details.debug-card[open] summary::before {
+  content: "\25bc  ";
+}
+
+details.debug-card summary:hover {
+  background: #fef9c3;
+  border-radius: 6px 6px 0 0;
+}
+
+details.debug-card .debug-content {
+  padding: 0 16px 16px 16px;
+}
+
+.debug-card h3 {
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin: 12px 0 6px 0;
+  color: #78350f;
+}
+
+.debug-messages {
+  margin: 8px 0;
+  padding: 0;
+  list-style: none;
+}
+
+.debug-messages li {
+  font-family: "SF Mono", "Fira Code", monospace;
+  font-size: 0.75rem;
+  color: #78350f;
+  padding: 2px 0;
+  word-break: break-all;
+}
+
+.debug-messages li::before {
+  content: "> ";
+  color: #b45309;
+}
+
+.debug-inspection {
+  margin: 8px 0;
+  padding: 10px;
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  border-radius: 4px;
+}
+
+.debug-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 3px 0;
+  font-size: 0.78rem;
+  border-bottom: 1px solid #fef3c7;
+}
+
+.debug-row:last-child {
+  border-bottom: none;
+}
+
+.debug-label {
+  font-weight: 600;
+  color: #92400e;
+  flex-shrink: 0;
+  margin-right: 12px;
+}
+
+.debug-value {
+  text-align: right;
+  word-break: break-all;
+  color: #78350f;
+  font-family: "SF Mono", "Fira Code", monospace;
+  font-size: 0.75rem;
+}
+
+.debug-raw {
+  margin-top: 8px;
+  padding: 8px;
+  background: #fef9c3;
+  border-radius: 4px;
+  font-family: "SF Mono", "Fira Code", monospace;
+  font-size: 0.7rem;
+  color: #713f12;
+  word-break: break-all;
+  max-height: 160px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+}
+
+.status-reclaimed {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+/* ---------------------------------------------------------------------------
+   Hash Calculation
+   --------------------------------------------------------------------------- */
+
+.hash-form-card {
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  padding: 16px;
+}
+
+.hash-form-card h2 {
+  font-size: 1.05rem;
+  font-weight: 700;
+  margin-bottom: 12px;
+  color: #111;
+}
+
+.blockhash-group {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.blockhash-group input {
+  flex: 1;
+}
+
+.nonce-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-top: 6px;
+}
+
+.nonce-row input {
+  flex: 1;
+}
+
+.btn-sm {
+  padding: 6px 12px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  background: #f3f4f6;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  cursor: pointer;
+  white-space: nowrap;
+  color: #333;
+  transition: background 0.15s;
+}
+
+.btn-sm:hover {
+  background: #e5e7eb;
+}
+
+.btn-sm:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.hash-result-card {
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 6px;
+  padding: 16px;
+  margin-top: 16px;
+}
+
+.hash-result-card h2 {
+  font-size: 1.05rem;
+  font-weight: 700;
+  margin-bottom: 4px;
+  color: #166534;
+}
+
+.hash-result-card .hash-subtitle {
+  font-size: 0.82rem;
+  color: #15803d;
+  margin-bottom: 12px;
+}
+
+.hash-display {
+  background: #fff;
+  border: 2px solid #22c55e;
+  border-radius: 6px;
+  padding: 14px 16px;
+  margin: 12px 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.hash-value {
+  font-family: "SF Mono", "Fira Code", monospace;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #111;
+  word-break: break-all;
+}
+
+.hash-params {
+  margin-top: 12px;
+}
+
+.hash-message-hex {
+  margin-top: 12px;
+  padding: 10px;
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 4px;
+  font-family: "SF Mono", monospace;
+  font-size: 0.7rem;
+  word-break: break-all;
+  color: #555;
+  max-height: 160px;
+  overflow-y: auto;
+}
+
+.or-divider {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 6px 0;
+  font-size: 0.78rem;
+  color: #999;
+}
+
+.or-divider::before,
+.or-divider::after {
+  content: "";
+  flex: 1;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+/* ---------------------------------------------------------------------------
+   Approval Hashes Table
+   --------------------------------------------------------------------------- */
+
+.approval-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 12px;
+  font-size: 0.78rem;
+}
+
+.approval-table th {
+  text-align: left;
+  padding: 8px 6px;
+  border-bottom: 2px solid #ddd;
+  font-weight: 600;
+  color: #555;
+  font-size: 0.75rem;
+}
+
+.approval-table td {
+  padding: 8px 6px;
+  border-bottom: 1px solid #f0f0f0;
+  vertical-align: top;
+}
+
+.approval-table .mono-cell {
+  font-family: "SF Mono", monospace;
+  font-size: 0.72rem;
+  word-break: break-all;
+}
+
+.approval-table tr:hover {
+  background: #f9fafb;
+}
+
+.verify-sig-section {
+  margin-top: 0;
+}
+
+.sig-result-card {
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  padding: 16px;
+  margin-top: 16px;
+}
+
+.sig-result-card h3 {
+  font-size: 0.95rem;
+  font-weight: 700;
+  margin-bottom: 10px;
+}
+
+.explorer-link {
+  font-size: 0.75rem;
+  color: #2563eb;
+  text-decoration: none;
+}
+
+.explorer-link:hover {
+  text-decoration: underline;
+}
+
+/* ---------------------------------------------------------------------------
+   Decode Section
+   --------------------------------------------------------------------------- */
+
+textarea {
+  width: 100%;
+  padding: 8px 12px;
+  font-family: "SF Mono", "Fira Code", monospace;
+  font-size: 0.82rem;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  background: #fff;
+  resize: vertical;
+}
+
+textarea:focus {
+  outline: none;
+  border-color: #555;
+  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.05);
+}
+
+.format-toggle {
+  display: flex;
+  gap: 4px;
+}
+
+.format-btn.active {
+  background: #111;
+  color: #fff;
+  border-color: #111;
+}
+
+.decoded-card {
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  padding: 16px;
+  margin-top: 16px;
+}
+
+.decoded-card h2 {
+  font-size: 1.05rem;
+  font-weight: 700;
+  margin-bottom: 12px;
+  color: #111;
+}
+
+.decoded-card h3 {
+  font-size: 0.9rem;
+  font-weight: 700;
+  margin: 16px 0 8px 0;
+  color: #333;
+}
+
+.account-flags {
+  display: inline-flex;
+  gap: 3px;
+  margin-left: 6px;
+}
+
+.flag-badge {
+  display: inline-block;
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-size: 0.68rem;
+  font-weight: 600;
+}
+
+.flag-signer {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+.flag-writable {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.flag-readonly {
+  background: #f3f4f6;
+  color: #6b7280;
+}
+
+.decoded-label {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 3px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  background: #d1fae5;
+  color: #065f46;
+  margin-left: 6px;
+}
+
+/* ---------------------------------------------------------------------------
+   Transaction Summary
+   --------------------------------------------------------------------------- */
+
+.summary-card {
+  background: #fff;
+  border: 2px solid #22c55e;
+  border-radius: 6px;
+  padding: 16px;
+  margin: 16px 0;
+}
+
+.summary-card h2 {
+  font-size: 1.05rem;
+  font-weight: 700;
+  margin-bottom: 12px;
+  color: #166534;
+}
+
+.summary-action {
+  padding: 12px;
+  background: #f0fdf4;
+  border-radius: 6px;
+  margin-bottom: 8px;
+}
+
+.summary-action:last-child {
+  margin-bottom: 0;
+}
+
+.summary-action-title {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #111;
+  margin-bottom: 8px;
+}
+
+.summary-detail-row {
+  display: flex;
+  gap: 8px;
+  padding: 4px 0;
+  font-size: 0.85rem;
+}
+
+.summary-detail-label {
+  font-weight: 600;
+  color: #555;
+  flex-shrink: 0;
+  min-width: 70px;
+}
+
+.summary-detail-value {
+  font-family: "SF Mono", monospace;
+  font-size: 0.82rem;
+  color: #111;
+  word-break: break-all;
+}
+
+/* Safety Badges */
+.safety-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 3px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  margin-left: 6px;
+}
+
+.safety-safe {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.safety-review {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.safety-unknown {
+  background: #fef2f2;
+  color: #b91c1c;
+}
+
+/* Collapsible safe instructions */
+details.safe-instruction {
+  margin: 8px 0;
+  border: 1px solid #e5e7eb;
+  border-radius: 4px;
+  background: #fafafa;
+}
+
+details.safe-instruction summary {
+  padding: 10px 12px;
+  cursor: pointer;
+  user-select: none;
+  list-style: none;
+  font-size: 0.82rem;
+  color: #333;
+}
+
+details.safe-instruction summary::before {
+  content: "\25b6  ";
+  font-size: 0.65rem;
+  color: #999;
+}
+
+details.safe-instruction[open] summary::before {
+  content: "\25bc  ";
+}
+
+details.safe-instruction .instruction-block {
+  margin: 0;
+  border: none;
+  border-top: 1px solid #e5e7eb;
+  border-radius: 0;
+}
+
+/* Warning Banners */
+.warning-banner {
+  padding: 10px 14px;
+  border-radius: 4px;
+  font-size: 0.82rem;
+  margin: 8px 0;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.warning-banner .warning-icon {
+  flex-shrink: 0;
+  font-size: 1rem;
+}
+
+.warning-info {
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  color: #1e40af;
+}
+
+.warning-caution {
+  background: #fefce8;
+  border: 1px solid #fde68a;
+  color: #92400e;
+}
+
+.warning-danger {
+  background: #fef2f2;
+  border: 1px solid #fca5a5;
+  color: #b91c1c;
+}
+
+/* Vault Transaction Contents */
+.vault-contents {
+  margin: 12px 0;
+  padding: 14px;
+  background: #f0fdf4;
+  border: 2px solid #86efac;
+  border-radius: 6px;
+}
+
+.vault-contents h4 {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #166534;
+  margin-bottom: 10px;
+}
+
+.vault-contents .inner-ix-block {
+  padding: 10px;
+  background: #fff;
+  border: 1px solid #bbf7d0;
+  border-radius: 4px;
+  margin-bottom: 8px;
+}
+
+.vault-contents .inner-ix-block:last-child {
+  margin-bottom: 0;
+}
+
+.inner-ix-title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #111;
+  margin-bottom: 6px;
+}
+
+/* Hidden Hash (pending review) */
+.hash-hidden {
+  background: #f3f4f6;
+  border: 2px dashed #d1d5db;
+  border-radius: 6px;
+  padding: 18px 16px;
+  margin: 12px 0;
+  text-align: center;
+  color: #9ca3af;
+  font-size: 0.9rem;
+}
+
+/* Review Button */
+.review-btn {
+  display: block;
+  width: 100%;
+  padding: 10px;
+  margin-top: 12px;
+  background: #111;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.review-btn:hover {
+  background: #333;
+}
+
+.review-btn:disabled {
+  background: #22c55e;
+  color: #fff;
+  cursor: default;
+}
+
+/* ---------------------------------------------------------------------------
+   Responsive
+   --------------------------------------------------------------------------- */
+
+@media (max-width: 640px) {
+  body {
+    padding: 12px;
+  }
+
+  .info-row {
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .info-value {
+    text-align: left;
+  }
+
+  .tx-row {
+    flex-wrap: wrap;
+  }
+
+  .tx-approval {
+    margin-left: 0;
+    width: 100%;
+  }
+}
