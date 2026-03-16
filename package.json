@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build && mv dist/index.html dist/squads-tx-hashes.html && cd dist && shasum -a 256 squads-tx-hashes.html > squads-tx-hashes.html.sha256",
-    "build:lib": "vite build --config vite.config.lib.ts && tsc -p tsconfig.lib.json",
+    "build:lib": "vite build --config vite.config.lib.ts && tsc -p tsconfig.lib.json && cp npm-package.json dist/package.json && cp README.md dist/README.md && cp LICENSE dist/LICENSE",
     "build:all": "npm run build && npm run build:lib",
     "test": "vitest run",
     "test:watch": "vitest"

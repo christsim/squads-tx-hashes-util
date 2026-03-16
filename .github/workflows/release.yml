@@ -7,6 +7,7 @@ on:
 
 permissions:
   contents: write
+  id-token: write
 
 jobs:
   release:
@@ -19,6 +20,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
+          registry-url: "https://registry.npmjs.org"
 
       - name: Generate version
         id: version
@@ -26,8 +28,11 @@ jobs:
           COMMIT_COUNT=$(git rev-list --count HEAD)
           SHORT_SHA=$(git rev-parse --short HEAD)
           VERSION="build-${COMMIT_COUNT}-${SHORT_SHA}"
+          NPM_VERSION="0.0.${COMMIT_COUNT}"
           echo "VERSION=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "NPM_VERSION=${NPM_VERSION}" >> "$GITHUB_OUTPUT"
           echo "Generated version: ${VERSION}"
+          echo "NPM version: ${NPM_VERSION}"
 
       - name: Install dependencies
         run: npm ci
@@ -36,6 +41,15 @@ jobs:
         env:
           VITE_APP_VERSION: ${{ steps.version.outputs.VERSION }}
         run: npm run build:all
+
+      - name: Set npm package version
+        run: |
+          cd dist
+          node -e "
+            const p = JSON.parse(require('fs').readFileSync('package.json', 'utf8'));
+            p.version = '${{ steps.version.outputs.NPM_VERSION }}';
+            require('fs').writeFileSync('package.json', JSON.stringify(p, null, 2));
+          "
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
@@ -55,3 +69,7 @@ jobs:
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: dist
+
+      - name: Publish to npm
+        working-directory: dist
+        run: npm publish --access public --provenance
