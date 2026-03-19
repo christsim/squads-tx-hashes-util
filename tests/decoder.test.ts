@@ -454,7 +454,351 @@ describe("generateTransactionSummary", () => {
   });
 });
 
+describe("config_transaction_create decoding", () => {
+  /** Encode a number as compact-u16 (Solana's variable-length encoding). */
+  function encodeCompactU16(value: number): number[] {
+    const bytes: number[] = [];
+    let v = value;
+    while (v >= 0x80) {
+      bytes.push((v & 0x7f) | 0x80);
+      v >>= 7;
+    }
+    bytes.push(v);
+    return bytes;
+  }
+
+  // Helper to build a test message — same as in instruction decoding tests
+  function makeTestMessage(
+    programIdBase58: string,
+    ixData: Uint8Array,
+    extraKeyCount: number = 0,
+    accountIndexes: number[] = []
+  ): Uint8Array {
+    const programIdBytes = bs58Decode(programIdBase58);
+    const feePayerKey = new Uint8Array(32).fill(0xaa);
+    const extraKeys: Uint8Array[] = [];
+    for (let i = 0; i < extraKeyCount; i++) {
+      const key = new Uint8Array(32);
+      key.fill(0x10 + i);
+      extraKeys.push(key);
+    }
+    const blockhash = new Uint8Array(32).fill(0xbb);
+
+    const allKeyBytes = [feePayerKey, ...extraKeys, programIdBytes];
+    const numKeys = allKeyBytes.length;
+    const programIdx = numKeys - 1;
+    const numReadonlyUnsigned = 1;
+
+    const parts: number[] = [
+      0x80, // V0
+      1, 0, numReadonlyUnsigned, // header
+      ...encodeCompactU16(numKeys),
+    ];
+    for (const k of allKeyBytes) parts.push(...k);
+    parts.push(...blockhash);
+    parts.push(...encodeCompactU16(1)); // 1 instruction
+    parts.push(programIdx);
+    parts.push(...encodeCompactU16(accountIndexes.length));
+    parts.push(...accountIndexes);
+    parts.push(...encodeCompactU16(ixData.length));
+    parts.push(...ixData);
+    parts.push(...encodeCompactU16(0)); // 0 ALTs
+    return new Uint8Array(parts);
+  }
+
+  it("decodes config_transaction_create with RemoveMember", () => {
+    // discriminator + 1 action (variant=1 RemoveMember) + pubkey (32 bytes) + no memo
+    const ixData = hexToBytes(
+      "9bec57e4894b5127" + // discriminator
+      "01000000" +          // 1 action
+      "01" +                // variant 1 = RemoveMember
+      "8ac9e286996aaa092c94f270f1a075fdad23bb2c309ec41d27f8014924341d05" + // pubkey
+      "00"                  // no memo
+    );
+    const bytes = makeTestMessage(
+      "SQDS4ep65T869zMMBKyuUq6aD6EgTu8psMjkvj52pCf",
+      ixData,
+      4,
+      [0, 1, 2, 3, 4]
+    );
+    const decoded = decodeMessage(bytes);
+
+    expect(decoded.instructions[0].decoded).toContain("config_transaction_create");
+    expect(decoded.instructions[0].decoded).toContain("RemoveMember");
+    expect(decoded.instructions[0].configActions).toBeDefined();
+    expect(decoded.instructions[0].configActions!.length).toBe(1);
+    expect(decoded.instructions[0].configActions![0].type).toBe("RemoveMember");
+    if (decoded.instructions[0].configActions![0].type === "RemoveMember") {
+      expect(decoded.instructions[0].configActions![0].oldMember).toBeTruthy();
+    }
+  });
+
+  it("decodes config_transaction_create with AddMember", () => {
+    const ixData = hexToBytes(
+      "9bec57e4894b5127" + // discriminator
+      "01000000" +          // 1 action
+      "00" +                // variant 0 = AddMember
+      "8ac9e286996aaa092c94f270f1a075fdad23bb2c309ec41d27f8014924341d05" + // pubkey
+      "07" +                // permissions mask (Initiate + Vote + Execute)
+      "00"                  // no memo
+    );
+    const bytes = makeTestMessage(
+      "SQDS4ep65T869zMMBKyuUq6aD6EgTu8psMjkvj52pCf",
+      ixData,
+      4,
+      [0, 1, 2, 3, 4]
+    );
+    const decoded = decodeMessage(bytes);
+
+    expect(decoded.instructions[0].decoded).toContain("config_transaction_create");
+    expect(decoded.instructions[0].decoded).toContain("AddMember");
+    expect(decoded.instructions[0].configActions).toBeDefined();
+    expect(decoded.instructions[0].configActions!.length).toBe(1);
+
+    const action = decoded.instructions[0].configActions![0];
+    expect(action.type).toBe("AddMember");
+    if (action.type === "AddMember") {
+      expect(action.member.permissions).toBe(7);
+    }
+  });
+
+  it("decodes config_transaction_create with ChangeThreshold", () => {
+    const ixData = hexToBytes(
+      "9bec57e4894b5127" + // discriminator
+      "01000000" +          // 1 action
+      "02" +                // variant 2 = ChangeThreshold
+      "0300" +              // new_threshold = 3 (u16 LE)
+      "00"                  // no memo
+    );
+    const bytes = makeTestMessage(
+      "SQDS4ep65T869zMMBKyuUq6aD6EgTu8psMjkvj52pCf",
+      ixData,
+      4,
+      [0, 1, 2, 3, 4]
+    );
+    const decoded = decodeMessage(bytes);
+
+    expect(decoded.instructions[0].decoded).toContain("config_transaction_create");
+    expect(decoded.instructions[0].decoded).toContain("ChangeThreshold(3)");
+    expect(decoded.instructions[0].configActions).toBeDefined();
+
+    const action = decoded.instructions[0].configActions![0];
+    expect(action.type).toBe("ChangeThreshold");
+    if (action.type === "ChangeThreshold") {
+      expect(action.newThreshold).toBe(3);
+    }
+  });
+
+  it("decodes config_transaction_create with AddSpendingLimit", () => {
+    // Build a realistic AddSpendingLimit payload:
+    //   createKey: 32 bytes (0x20 fill)
+    //   vaultIndex: 0
+    //   mint: USDC mint (EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v)
+    //   amount: 1_000_000 (1 USDC)
+    //   period: 1 (Day)
+    //   members: 1 member (32 bytes 0x30 fill)
+    //   destinations: 0 (any address)
+    const usdcMintBytes = bs58Decode("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v");
+    const createKeyBytes = new Uint8Array(32).fill(0x20);
+    const memberBytes = new Uint8Array(32).fill(0x30);
+
+    // amount = 1_000_000 as u64 LE
+    const amountBytes = new Uint8Array(8);
+    amountBytes[0] = 0x40; amountBytes[1] = 0x42; amountBytes[2] = 0x0f;
+    // 0x0f4240 = 1_000_000
+
+    const payload = new Uint8Array([
+      ...hexToBytes("9bec57e4894b5127"), // discriminator
+      0x01, 0x00, 0x00, 0x00,             // 1 action
+      0x04,                                // variant 4 = AddSpendingLimit
+      ...createKeyBytes,                   // createKey
+      0x00,                                // vaultIndex = 0
+      ...usdcMintBytes,                    // mint (USDC)
+      ...amountBytes,                      // amount
+      0x01,                                // period = Day
+      0x01, 0x00, 0x00, 0x00,             // members.len = 1
+      ...memberBytes,                      // member pubkey
+      0x00, 0x00, 0x00, 0x00,             // destinations.len = 0
+      0x00,                                // no memo
+    ]);
+
+    const bytes = makeTestMessage(
+      "SQDS4ep65T869zMMBKyuUq6aD6EgTu8psMjkvj52pCf",
+      payload,
+      4,
+      [0, 1, 2, 3, 4]
+    );
+    const decoded = decodeMessage(bytes);
+
+    expect(decoded.instructions[0].decoded).toContain("config_transaction_create");
+    expect(decoded.instructions[0].decoded).toContain("AddSpendingLimit");
+    expect(decoded.instructions[0].configActions).toBeDefined();
+    expect(decoded.instructions[0].configActions!.length).toBe(1);
+
+    const action = decoded.instructions[0].configActions![0];
+    expect(action.type).toBe("AddSpendingLimit");
+    if (action.type === "AddSpendingLimit") {
+      expect(action.vaultIndex).toBe(0);
+      expect(action.amount).toBe(1_000_000n);
+      expect(action.period).toBe("Day");
+      expect(action.members.length).toBe(1);
+      expect(action.destinations.length).toBe(0);
+    }
+
+    // Summary should produce a readable action
+    const summary = generateTransactionSummary(decoded);
+    expect(summary.actions.length).toBe(1);
+    expect(summary.actions[0].title).toContain("Add Spending Limit");
+    expect(summary.actions[0].title).toContain("USDC");
+    expect(summary.actions[0].details["Period"]).toBe("Day");
+  });
+
+  it("decodes config_transaction_create with SetTimeLock", () => {
+    const ixData = hexToBytes(
+      "9bec57e4894b5127" + // discriminator
+      "01000000" +          // 1 action
+      "03" +                // variant 3 = SetTimeLock
+      "3c000000" +          // new_time_lock = 60 seconds (u32 LE)
+      "00"                  // no memo
+    );
+    const bytes = makeTestMessage(
+      "SQDS4ep65T869zMMBKyuUq6aD6EgTu8psMjkvj52pCf",
+      ixData,
+      4,
+      [0, 1, 2, 3, 4]
+    );
+    const decoded = decodeMessage(bytes);
+
+    expect(decoded.instructions[0].decoded).toContain("config_transaction_create");
+    expect(decoded.instructions[0].decoded).toContain("SetTimeLock(60s)");
+    const action = decoded.instructions[0].configActions![0];
+    expect(action.type).toBe("SetTimeLock");
+    if (action.type === "SetTimeLock") {
+      expect(action.newTimeLock).toBe(60);
+    }
+  });
+
+  it("decodes config_transaction_create with SetRentCollector", () => {
+    const ixData = hexToBytes(
+      "9bec57e4894b5127" + // discriminator
+      "01000000" +          // 1 action
+      "06" +                // variant 6 = SetRentCollector
+      "01" +                // Some(pubkey)
+      "8ac9e286996aaa092c94f270f1a075fdad23bb2c309ec41d27f8014924341d05" + // pubkey
+      "00"                  // no memo
+    );
+    const bytes = makeTestMessage(
+      "SQDS4ep65T869zMMBKyuUq6aD6EgTu8psMjkvj52pCf",
+      ixData,
+      4,
+      [0, 1, 2, 3, 4]
+    );
+    const decoded = decodeMessage(bytes);
+
+    expect(decoded.instructions[0].decoded).toContain("config_transaction_create");
+    expect(decoded.instructions[0].decoded).toContain("SetRentCollector");
+    const action = decoded.instructions[0].configActions![0];
+    expect(action.type).toBe("SetRentCollector");
+    if (action.type === "SetRentCollector") {
+      expect(action.newRentCollector).toBeTruthy();
+    }
+  });
+
+  it("decodes config_transaction_create with RemoveSpendingLimit", () => {
+    const ixData = hexToBytes(
+      "9bec57e4894b5127" + // discriminator
+      "01000000" +          // 1 action
+      "05" +                // variant 5 = RemoveSpendingLimit
+      "8ac9e286996aaa092c94f270f1a075fdad23bb2c309ec41d27f8014924341d05" + // spending limit pubkey
+      "00"                  // no memo
+    );
+    const bytes = makeTestMessage(
+      "SQDS4ep65T869zMMBKyuUq6aD6EgTu8psMjkvj52pCf",
+      ixData,
+      4,
+      [0, 1, 2, 3, 4]
+    );
+    const decoded = decodeMessage(bytes);
+
+    expect(decoded.instructions[0].decoded).toContain("config_transaction_create");
+    expect(decoded.instructions[0].decoded).toContain("RemoveSpendingLimit");
+    const action = decoded.instructions[0].configActions![0];
+    expect(action.type).toBe("RemoveSpendingLimit");
+    if (action.type === "RemoveSpendingLimit") {
+      expect(action.spendingLimit).toBeTruthy();
+    }
+  });
+
+  it("generates summary actions for config_transaction_create", () => {
+    // RemoveMember config transaction
+    const ixData = hexToBytes(
+      "9bec57e4894b5127" +
+      "01000000" +
+      "01" +
+      "8ac9e286996aaa092c94f270f1a075fdad23bb2c309ec41d27f8014924341d05" +
+      "00"
+    );
+    const bytes = makeTestMessage(
+      "SQDS4ep65T869zMMBKyuUq6aD6EgTu8psMjkvj52pCf",
+      ixData,
+      4,
+      [0, 1, 2, 3, 4]
+    );
+    const decoded = decodeMessage(bytes);
+    const summary = generateTransactionSummary(decoded);
+
+    expect(summary.actions.length).toBe(1);
+    expect(summary.actions[0].title).toBe("Remove Member");
+    expect(summary.actions[0].details["Member to Remove"]).toBeTruthy();
+    expect(summary.outerInstructionSafety).toContain("review");
+  });
+});
+
 describe("real transaction decoding", () => {
+  it("decodes a real Squads config_transaction_create (RemoveMember) transaction", () => {
+    const hex =
+      "0400040c8e3b9a5251c8704959fc7796ab73bbf80f35f9117facc38d1ea633f0af10b5a525843d5dd8927b66cb65086eb3b1a96e84677a86ce5834d343e857253c1ca43ba596a86ad7a1a28402e35aec422477653a87ca88191a30053e32d03de990d9a9bf67f6b6c3ad48b95a23600f58cbb049062dc5812b8272ef09bae3d2de79f454121c98351aa05ed42337bcc107c63442e56edcd142eaeff7ea9470f850e2dd675bc502059ed024cd0b8cf22219fea0244bfedea92ac306acbebc3da8b0d23316c1cb0ea07cadd47ae519027522f9c5aeda3aadbe3966d5c8845b96d6a622c5cafb531a9efa4350a8fb84b0a894e785cd4cba4278fd59ff3ddac19ebf5e88f88100000000000000000000000000000000000000000000000000000000000000000306466fe5211732ffecadba72c39be7bc8ce5bbc5f7126b2c439b3a400000000681c4ce47e22368b8b1555ec887af092efc7efbb66ca3f52fbf68d4ac9cb7a806a7d517192c568ee08a845f73d29788cf035c3145b21ab344d8062ea9400000002abe8db1c33fa2d62812caf0486797ffaed378a39d69991bf0f92353136e79080803070b0004040000000900050220a1070009000903fa000000000000000a0506040200082e9bec57e4894b512701000000018ac9e286996aaa092c94f270f1a075fdad23bb2c309ec41d27f8014924341d05000a05060502000811dc3c49e01e6c4f9f0400000000000000000a03060205099025a488bcd82af8000a03060105099025a488bcd82af8000a03060305099025a488bcd82af800";
+
+    const bytes = hexToBytes(hex);
+    const decoded = decodeMessage(bytes);
+
+    // Basic structure
+    expect(decoded.version).toBe("legacy");
+    expect(decoded.instructions.length).toBe(8);
+
+    // Find the config_transaction_create instruction
+    const ctcIx = decoded.instructions.find(
+      (ix) =>
+        ix.decoded !== null &&
+        ix.decoded.startsWith("config_transaction_create")
+    );
+    expect(ctcIx).toBeDefined();
+    expect(ctcIx!.decoded).toContain("RemoveMember");
+    expect(ctcIx!.configActions).toBeDefined();
+    expect(ctcIx!.configActions!.length).toBe(1);
+    expect(ctcIx!.configActions![0].type).toBe("RemoveMember");
+
+    // Generate summary
+    const summary = generateTransactionSummary(decoded);
+    expect(summary.actions.length).toBe(1);
+    expect(summary.actions[0].title).toBe("Remove Member");
+    expect(summary.actions[0].details["Member to Remove"]).toBeTruthy();
+
+    // Find proposal_create instruction
+    const pcIx = decoded.instructions.find(
+      (ix) =>
+        ix.decoded !== null && ix.decoded.startsWith("proposal_create")
+    );
+    expect(pcIx).toBeDefined();
+
+    // Find proposal_approve instructions (3 of them)
+    const approveIxs = decoded.instructions.filter(
+      (ix) =>
+        ix.decoded !== null && ix.decoded.startsWith("proposal_approve")
+    );
+    expect(approveIxs.length).toBe(3);
+  });
+
   it("decodes a real Squads NVIDIA xStock transfer transaction", () => {
     const hex =
       "0300040bde4df180b85b7e9d146dac46fed409cc27c00d715180596c7d98951654b828a39f9ba13ae7815f6f7c3dfe61dae8991344cd59d9304d38d0ac3f7f56d2ee3e1adb8fe49e5e2c7f3a82ebce74a51b32baf75d412974c66c8e2da83a8a3ca1647641f51161de6eb336b3ac1ccff2f31fec5db55be6ed9833da42c61de92994c07fb10cfc1d5ca7ffebc8c14f8b4a638060cbcefee7519cd08bd6b9cd5367d60411cd69ad997821a2a87d2fd0e41f6ebd18e71cefc05b6d69734679f5c5244963d1c83ca9d5c2711f33545d5e6ab3aa77498e3afe26ed4d54f3350146a032b9cb9800000000000000000000000000000000000000000000000000000000000000000306466fe5211732ffecadba72c39be7bc8ce5bbc5f7126b2c439b3a400000000681c4ce47e22368b8b1555ec887af092efc7efbb66ca3f52fbf68d4ac9cb7a806a7d517192c568ee08a845f73d29788cf035c3145b21ab344d8062ea94000005362966157adb35dcb8255af51631bdc316ae95fd8a8e4ebc9a0108ef49dbfd5070703040a00040400000008000502305705000800090340420f000000000009050305020007c70130fa4ea8d0e2dad30100b800000001010205cf6b1de7612ab7aa19f8a47c9a90417b16cabc1dc873fceb31ee30919f2d8e25c58d19c6b8420b800004a5b13bcb83dfbfdd0dd3fd6c69452dbe619a319b43334a51f1430818c0381390c197ae3a5751d461cfd1dc729835265f0dd63c6604cf06ddf6e1d765a193d9cbe146ceeb79ac1cb485ed5f5b37913a8cf5857eff00a9c6fa7af3bedbad3a3d65f36aabc97431b1bbe4c2d2f6e0e47ca60203452f5d61010304010402000a000c10270000000000000600000905030602000711dc3c49e01e6c4f9f0200000000000000000903030206099025a488bcd82af8000903030106099025a488bcd82af800";

@@ -10,8 +10,10 @@ import {
   type DecodedMessage,
   type DecodedInnerInstruction,
   type InstructionSafety,
+  type ConfigAction,
   generateTransactionSummary,
 } from "./decoder";
+import { formatPermissions } from "./constants";
 
 // ---------------------------------------------------------------------------
 // DOM Helpers
@@ -520,6 +522,19 @@ function renderExpandedInstruction(
   const block = renderInstructionContent(ix);
   block.insertBefore(titleEl, block.firstChild);
 
+  if (ix.configActions && ix.configActions.length > 0) {
+    const configContents = el("div", "vault-contents");
+    configContents.appendChild(
+      el("h4", undefined, "Config Transaction Actions")
+    );
+
+    for (let j = 0; j < ix.configActions.length; j++) {
+      configContents.appendChild(renderConfigAction(j, ix.configActions[j]));
+    }
+
+    block.appendChild(configContents);
+  }
+
   if (ix.innerInstructions && ix.innerInstructions.length > 0) {
     const vaultContents = el("div", "vault-contents");
     vaultContents.appendChild(
@@ -650,6 +665,142 @@ function renderInnerInstruction(
   if (inner.data.length > 0) {
     block.appendChild(el("h4", undefined, `Data (${inner.data.length} bytes)`));
     block.appendChild(el("div", "data-hex", inner.dataHex));
+  }
+
+  return block;
+}
+
+function renderConfigAction(
+  index: number,
+  action: ConfigAction
+): HTMLElement {
+  const block = el("div", "inner-ix-block");
+
+  const titleEl = el("div", "inner-ix-title");
+  titleEl.appendChild(document.createTextNode(`Action ${index + 1}: `));
+  titleEl.appendChild(el("span", "decoded-label", action.type));
+  block.appendChild(titleEl);
+
+  switch (action.type) {
+    case "AddMember": {
+      const row = el("div", "summary-detail-row");
+      row.appendChild(el("span", "summary-detail-label", "New Member"));
+      row.appendChild(el("span", "summary-detail-value", action.member.key));
+      row.appendChild(createCopyButton(action.member.key));
+      block.appendChild(row);
+
+      const perms = formatPermissions(action.member.permissions);
+      const permRow = el("div", "summary-detail-row");
+      permRow.appendChild(el("span", "summary-detail-label", "Permissions"));
+      permRow.appendChild(
+        el(
+          "span",
+          "summary-detail-value",
+          perms.length > 0 ? perms.join(", ") : `(mask: ${action.member.permissions})`
+        )
+      );
+      block.appendChild(permRow);
+      break;
+    }
+
+    case "RemoveMember": {
+      const row = el("div", "summary-detail-row");
+      row.appendChild(el("span", "summary-detail-label", "Member to Remove"));
+      row.appendChild(el("span", "summary-detail-value", action.oldMember));
+      row.appendChild(createCopyButton(action.oldMember));
+      block.appendChild(row);
+      break;
+    }
+
+    case "ChangeThreshold": {
+      const row = el("div", "summary-detail-row");
+      row.appendChild(el("span", "summary-detail-label", "New Threshold"));
+      row.appendChild(
+        el("span", "summary-detail-value", action.newThreshold.toString())
+      );
+      block.appendChild(row);
+      break;
+    }
+
+    case "SetTimeLock": {
+      const row = el("div", "summary-detail-row");
+      row.appendChild(el("span", "summary-detail-label", "New Time Lock"));
+      row.appendChild(
+        el("span", "summary-detail-value", `${action.newTimeLock} seconds`)
+      );
+      block.appendChild(row);
+      break;
+    }
+
+    case "AddSpendingLimit": {
+      const mintInfo = getTokenInfo(action.mint);
+      const mintDisplay = mintInfo
+        ? `${action.mint} [${mintInfo.symbol}]`
+        : action.mint;
+      const amountDisplay = mintInfo
+        ? `${Number(action.amount) / Math.pow(10, mintInfo.decimals)} ${mintInfo.symbol} (${action.amount.toLocaleString()} raw)`
+        : action.amount.toLocaleString();
+
+      const fields: [string, string][] = [
+        ["Mint", mintDisplay],
+        ["Amount", amountDisplay],
+        ["Period", action.period],
+        ["Vault Index", action.vaultIndex.toString()],
+        ["Create Key", action.createKey],
+      ];
+      for (let i = 0; i < action.members.length; i++) {
+        fields.push([`Member ${i + 1}`, action.members[i]]);
+      }
+      if (action.destinations.length === 0) {
+        fields.push(["Destinations", "(any address)"]);
+      } else {
+        for (let i = 0; i < action.destinations.length; i++) {
+          fields.push([`Destination ${i + 1}`, action.destinations[i]]);
+        }
+      }
+
+      for (const [label, value] of fields) {
+        const row = el("div", "summary-detail-row");
+        row.appendChild(el("span", "summary-detail-label", label));
+        row.appendChild(el("span", "summary-detail-value", value));
+        row.appendChild(createCopyButton(value));
+        block.appendChild(row);
+      }
+      break;
+    }
+
+    case "RemoveSpendingLimit": {
+      const row = el("div", "summary-detail-row");
+      row.appendChild(el("span", "summary-detail-label", "Spending Limit"));
+      row.appendChild(
+        el("span", "summary-detail-value", action.spendingLimit)
+      );
+      row.appendChild(createCopyButton(action.spendingLimit));
+      block.appendChild(row);
+      break;
+    }
+
+    case "SetRentCollector": {
+      const row = el("div", "summary-detail-row");
+      row.appendChild(el("span", "summary-detail-label", "Rent Collector"));
+      const value = action.newRentCollector ?? "(none)";
+      row.appendChild(el("span", "summary-detail-value", value));
+      if (action.newRentCollector) {
+        row.appendChild(createCopyButton(action.newRentCollector));
+      }
+      block.appendChild(row);
+      break;
+    }
+
+    case "Unknown": {
+      block.appendChild(
+        createInfoRow("Variant", action.variant.toString())
+      );
+      if (action.raw) {
+        block.appendChild(el("div", "data-hex", action.raw));
+      }
+      break;
+    }
   }
 
   return block;

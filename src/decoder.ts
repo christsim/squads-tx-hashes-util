@@ -17,6 +17,7 @@ import {
   DISCRIMINATOR_PROPOSAL_APPROVE,
   DISCRIMINATOR_PROPOSAL_REJECT,
   getTokenInfo,
+  formatPermissions,
 } from "./constants";
 
 // ---------------------------------------------------------------------------
@@ -49,7 +50,31 @@ export interface DecodedInstruction {
   decoded: string | null;
   decodedDetails?: Record<string, string>;
   innerInstructions?: DecodedInnerInstruction[];
+  configActions?: ConfigAction[];
 }
+
+// ---------------------------------------------------------------------------
+// Config Action Types (for config_transaction_create)
+// ---------------------------------------------------------------------------
+
+export type ConfigAction =
+  | { type: "AddMember"; member: { key: string; permissions: number } }
+  | { type: "RemoveMember"; oldMember: string }
+  | { type: "ChangeThreshold"; newThreshold: number }
+  | { type: "SetTimeLock"; newTimeLock: number }
+  | {
+      type: "AddSpendingLimit";
+      createKey: string;
+      vaultIndex: number;
+      mint: string;
+      amount: bigint;
+      period: string;
+      members: string[];
+      destinations: string[];
+    }
+  | { type: "RemoveSpendingLimit"; spendingLimit: string }
+  | { type: "SetRentCollector"; newRentCollector: string | null }
+  | { type: "Unknown"; variant: number; raw: string };
 
 /** Inner instruction from a vault_transaction_create embedded message. */
 export interface DecodedInnerInstruction {
@@ -258,6 +283,7 @@ export function decodeMessage(messageBytes: Uint8Array): DecodedMessage {
       decoded: decodedResult?.decoded ?? null,
       decodedDetails: decodedResult?.details,
       innerInstructions: decodedResult?.innerInstructions,
+      configActions: decodedResult?.configActions,
     });
   }
 
@@ -389,6 +415,7 @@ interface DecodedIxResult {
   decoded: string;
   details?: Record<string, string>;
   innerInstructions?: DecodedInnerInstruction[];
+  configActions?: ConfigAction[];
   accountLabels?: string[];
 }
 
@@ -471,7 +498,7 @@ function decodeSquadsInstruction(data: Uint8Array): DecodedIxResult | null {
 
   // config_transaction_create
   if (matchesBytes(data, DISC_CONFIG_TX_CREATE)) {
-    return { decoded: "config_transaction_create" };
+    return decodeConfigTransactionCreate(data);
   }
 
   // config_transaction_execute
@@ -734,6 +761,278 @@ function decodeSquadsVaultMessage(
     numWritableNonSigners,
     accountKeys,
     instructions,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// config_transaction_create decoder
+// ---------------------------------------------------------------------------
+
+/**
+ * config_transaction_create data layout:
+ *   [0..7]    discriminator (8 bytes)
+ *   [8..11]   actions.len (u32 LE — Vec length)
+ *   [12..]    actions (ConfigAction[])
+ *   [...]     memo (COption<utf8String>)
+ *
+ * ConfigAction enum (Anchor u8 variant index):
+ *   0 = AddMember     { new_member: Member { key: Pubkey, permissions: Permissions { mask: u8 } } }
+ *   1 = RemoveMember  { old_member: Pubkey }
+ *   2 = ChangeThreshold { new_threshold: u16 LE }
+ *   3 = SetTimeLock   { new_time_lock: u32 LE }
+ *   4 = AddSpendingLimit { ... complex ... }
+ *   5 = RemoveSpendingLimit { spending_limit: Pubkey }
+ *   6 = SetRentCollector { new_rent_collector: Option<Pubkey> }
+ */
+function decodeConfigTransactionCreate(data: Uint8Array): DecodedIxResult {
+  const details: Record<string, string> = {};
+  const configActions: ConfigAction[] = [];
+
+  if (data.length < 12) {
+    return {
+      decoded: "config_transaction_create (truncated)",
+      details,
+    };
+  }
+
+  const numActions = readU32LE(data, 8);
+  details["Config Actions"] = numActions.toString();
+
+  let offset = 12;
+  const actionDescriptions: string[] = [];
+
+  for (let i = 0; i < numActions; i++) {
+    if (offset >= data.length) {
+      actionDescriptions.push("(truncated)");
+      break;
+    }
+
+    const variant = data[offset++];
+
+    switch (variant) {
+      case 0: {
+        // AddMember: Pubkey (32 bytes) + Permissions { mask: u8 }
+        if (offset + 33 > data.length) {
+          actionDescriptions.push("AddMember (truncated)");
+          configActions.push({ type: "Unknown", variant: 0, raw: bytesToHex(data.slice(offset)) });
+          offset = data.length;
+          break;
+        }
+        const memberKey = bs58Encode(data.slice(offset, offset + 32));
+        offset += 32;
+        const permMask = data[offset++];
+        const perms = formatPermissions(permMask);
+
+        configActions.push({
+          type: "AddMember",
+          member: { key: memberKey, permissions: permMask },
+        });
+        actionDescriptions.push(`AddMember`);
+        details[`Action ${i + 1}`] = "Add Member";
+        details[`New Member`] = memberKey;
+        details[`Permissions`] = perms.length > 0 ? perms.join(", ") : `(mask: ${permMask})`;
+        break;
+      }
+
+      case 1: {
+        // RemoveMember: Pubkey (32 bytes)
+        if (offset + 32 > data.length) {
+          actionDescriptions.push("RemoveMember (truncated)");
+          configActions.push({ type: "Unknown", variant: 1, raw: bytesToHex(data.slice(offset)) });
+          offset = data.length;
+          break;
+        }
+        const oldMember = bs58Encode(data.slice(offset, offset + 32));
+        offset += 32;
+
+        configActions.push({ type: "RemoveMember", oldMember });
+        actionDescriptions.push(`RemoveMember`);
+        details[`Action ${i + 1}`] = "Remove Member";
+        details[`Member to Remove`] = oldMember;
+        break;
+      }
+
+      case 2: {
+        // ChangeThreshold: u16 LE
+        if (offset + 2 > data.length) {
+          actionDescriptions.push("ChangeThreshold (truncated)");
+          configActions.push({ type: "Unknown", variant: 2, raw: bytesToHex(data.slice(offset)) });
+          offset = data.length;
+          break;
+        }
+        const newThreshold = data[offset] | (data[offset + 1] << 8);
+        offset += 2;
+
+        configActions.push({ type: "ChangeThreshold", newThreshold });
+        actionDescriptions.push(`ChangeThreshold(${newThreshold})`);
+        details[`Action ${i + 1}`] = "Change Threshold";
+        details[`New Threshold`] = newThreshold.toString();
+        break;
+      }
+
+      case 3: {
+        // SetTimeLock: u32 LE
+        if (offset + 4 > data.length) {
+          actionDescriptions.push("SetTimeLock (truncated)");
+          configActions.push({ type: "Unknown", variant: 3, raw: bytesToHex(data.slice(offset)) });
+          offset = data.length;
+          break;
+        }
+        const newTimeLock = readU32LE(data, offset);
+        offset += 4;
+
+        configActions.push({ type: "SetTimeLock", newTimeLock });
+        actionDescriptions.push(`SetTimeLock(${newTimeLock}s)`);
+        details[`Action ${i + 1}`] = "Set Time Lock";
+        details[`New Time Lock`] = `${newTimeLock} seconds`;
+        break;
+      }
+
+      case 4: {
+        // AddSpendingLimit layout (from Squads v4 IDL):
+        //   Pubkey(32)  createKey
+        //   u8          vaultIndex
+        //   Pubkey(32)  mint
+        //   u64 LE      amount
+        //   u8          period enum (0=OneTime, 1=Day, 2=Week, 3=Month)
+        //   u32 LE + N×Pubkey(32)  members Vec
+        //   u32 LE + N×Pubkey(32)  destinations Vec
+        const minSize = 32 + 1 + 32 + 8 + 1 + 4 + 4; // 82 bytes minimum
+        if (offset + minSize > data.length) {
+          actionDescriptions.push("AddSpendingLimit (truncated)");
+          configActions.push({ type: "Unknown", variant: 4, raw: bytesToHex(data.slice(offset)) });
+          offset = data.length;
+          break;
+        }
+
+        const slCreateKey = bs58Encode(data.slice(offset, offset + 32));
+        offset += 32;
+        const slVaultIndex = data[offset++];
+        const slMint = bs58Encode(data.slice(offset, offset + 32));
+        offset += 32;
+        const slAmount = readU64LE(data, offset);
+        offset += 8;
+        const slPeriodByte = data[offset++];
+        const periodLabels = ["OneTime", "Day", "Week", "Month"];
+        const slPeriod = periodLabels[slPeriodByte] ?? `Unknown(${slPeriodByte})`;
+
+        // Members Vec<Pubkey>
+        const slMembersLen = readU32LE(data, offset);
+        offset += 4;
+        const slMembers: string[] = [];
+        for (let m = 0; m < slMembersLen; m++) {
+          if (offset + 32 > data.length) break;
+          slMembers.push(bs58Encode(data.slice(offset, offset + 32)));
+          offset += 32;
+        }
+
+        // Destinations Vec<Pubkey>
+        const slDestsLen = readU32LE(data, offset);
+        offset += 4;
+        const slDests: string[] = [];
+        for (let d = 0; d < slDestsLen; d++) {
+          if (offset + 32 > data.length) break;
+          slDests.push(bs58Encode(data.slice(offset, offset + 32)));
+          offset += 32;
+        }
+
+        const mintInfo = getTokenInfo(slMint);
+        const tokenLabel = mintInfo ? mintInfo.symbol : "tokens";
+
+        configActions.push({
+          type: "AddSpendingLimit",
+          createKey: slCreateKey,
+          vaultIndex: slVaultIndex,
+          mint: slMint,
+          amount: slAmount,
+          period: slPeriod,
+          members: slMembers,
+          destinations: slDests,
+        });
+        actionDescriptions.push("AddSpendingLimit");
+        details[`Action ${i + 1}`] = "Add Spending Limit";
+        details[`Spending Limit Mint`] = mintInfo
+          ? `${slMint} [${mintInfo.symbol}]`
+          : slMint;
+        details[`Spending Limit Amount`] = mintInfo
+          ? `${Number(slAmount) / Math.pow(10, mintInfo.decimals)} ${mintInfo.symbol} (${slAmount.toLocaleString()} raw)`
+          : slAmount.toLocaleString();
+        details[`Spending Limit Period`] = slPeriod;
+        details[`Spending Limit Vault`] = slVaultIndex.toString();
+        if (slMembers.length > 0) {
+          details[`Spending Limit Members`] = slMembers.length.toString();
+        }
+        if (slDests.length > 0) {
+          details[`Spending Limit Destinations`] = slDests.length.toString();
+        }
+        break;
+      }
+
+      case 5: {
+        // RemoveSpendingLimit: Pubkey (32 bytes)
+        if (offset + 32 > data.length) {
+          actionDescriptions.push("RemoveSpendingLimit (truncated)");
+          configActions.push({ type: "Unknown", variant: 5, raw: bytesToHex(data.slice(offset)) });
+          offset = data.length;
+          break;
+        }
+        const spendingLimit = bs58Encode(data.slice(offset, offset + 32));
+        offset += 32;
+
+        configActions.push({ type: "RemoveSpendingLimit", spendingLimit });
+        actionDescriptions.push("RemoveSpendingLimit");
+        details[`Action ${i + 1}`] = "Remove Spending Limit";
+        details[`Spending Limit`] = spendingLimit;
+        break;
+      }
+
+      case 6: {
+        // SetRentCollector: Option<Pubkey> (1 byte option tag + optional 32 bytes)
+        if (offset >= data.length) {
+          actionDescriptions.push("SetRentCollector (truncated)");
+          configActions.push({ type: "Unknown", variant: 6, raw: "" });
+          break;
+        }
+        const optionTag = data[offset++];
+        if (optionTag === 1 && offset + 32 <= data.length) {
+          const rentCollector = bs58Encode(data.slice(offset, offset + 32));
+          offset += 32;
+          configActions.push({ type: "SetRentCollector", newRentCollector: rentCollector });
+          actionDescriptions.push("SetRentCollector");
+          details[`Action ${i + 1}`] = "Set Rent Collector";
+          details[`Rent Collector`] = rentCollector;
+        } else {
+          configActions.push({ type: "SetRentCollector", newRentCollector: null });
+          actionDescriptions.push("SetRentCollector(none)");
+          details[`Action ${i + 1}`] = "Set Rent Collector";
+          details[`Rent Collector`] = "(none)";
+        }
+        break;
+      }
+
+      default: {
+        // Unknown variant — capture remaining bytes
+        const rest = data.slice(offset);
+        configActions.push({ type: "Unknown", variant, raw: bytesToHex(rest) });
+        actionDescriptions.push(`Unknown(${variant})`);
+        details[`Action ${i + 1}`] = `Unknown config action (variant ${variant})`;
+        offset = data.length;
+        break;
+      }
+    }
+  }
+
+  // Memo after the actions
+  const memo = decodeMemoField(data, offset);
+  if (memo.value) {
+    details["Memo"] = memo.value;
+  }
+
+  const summary = actionDescriptions.join(", ");
+  return {
+    decoded: `config_transaction_create (${summary}${memo.text})`,
+    details,
+    configActions,
   };
 }
 
@@ -1225,7 +1524,14 @@ export function generateTransactionSummary(
           multisigPda = ix.accounts[0].pubkey;
         }
 
-        // Generate action summaries from inner instructions
+        // Generate action summaries from config actions (config_transaction_create)
+        if (ix.configActions && ix.configActions.length > 0) {
+          for (const configAction of ix.configActions) {
+            actions.push(generateConfigActionSummary(configAction));
+          }
+        }
+
+        // Generate action summaries from inner instructions (vault_transaction_create)
         if (ix.innerInstructions) {
           for (const inner of ix.innerInstructions) {
             actions.push(generateActionSummary(inner));
@@ -1264,16 +1570,19 @@ export function generateTransactionSummary(
           }
         }
 
-        if (!ix.innerInstructions || ix.innerInstructions.length === 0) {
-          warnings.push({
-            severity: "danger",
-            message: "Vault transaction has no inner instructions — this is unusual.",
-          });
-        } else if (ix.innerInstructions.length > 1) {
-          warnings.push({
-            severity: "info",
-            message: `Vault transaction contains ${ix.innerInstructions.length} inner instructions. Review all of them.`,
-          });
+        // Warnings for vault transactions without content
+        if (ixName !== "config_transaction_create") {
+          if (!ix.innerInstructions || ix.innerInstructions.length === 0) {
+            warnings.push({
+              severity: "danger",
+              message: "Vault transaction has no inner instructions — this is unusual.",
+            });
+          } else if (ix.innerInstructions.length > 1) {
+            warnings.push({
+              severity: "info",
+              message: `Vault transaction contains ${ix.innerInstructions.length} inner instructions. Review all of them.`,
+            });
+          }
         }
       } else if (SAFE_INSTRUCTIONS.has(ixName)) {
         outerInstructionSafety.push("safe");
@@ -1438,6 +1747,116 @@ function generateActionSummary(inner: DecodedInnerInstruction): ActionSummary {
     programId: inner.programId,
     programLabel,
   };
+}
+
+function generateConfigActionSummary(configAction: ConfigAction): ActionSummary {
+  switch (configAction.type) {
+    case "AddMember": {
+      const perms = formatPermissions(configAction.member.permissions);
+      return {
+        title: "Add Member",
+        details: {
+          "New Member": configAction.member.key,
+          Permissions: perms.length > 0
+            ? perms.join(", ")
+            : `(mask: ${configAction.member.permissions})`,
+        },
+        programId: SQUADS_PROGRAM_ID,
+        programLabel: "Squads Multisig v4",
+      };
+    }
+
+    case "RemoveMember":
+      return {
+        title: "Remove Member",
+        details: {
+          "Member to Remove": configAction.oldMember,
+        },
+        programId: SQUADS_PROGRAM_ID,
+        programLabel: "Squads Multisig v4",
+      };
+
+    case "ChangeThreshold":
+      return {
+        title: `Change Threshold to ${configAction.newThreshold}`,
+        details: {
+          "New Threshold": configAction.newThreshold.toString(),
+        },
+        programId: SQUADS_PROGRAM_ID,
+        programLabel: "Squads Multisig v4",
+      };
+
+    case "SetTimeLock":
+      return {
+        title: `Set Time Lock to ${configAction.newTimeLock}s`,
+        details: {
+          "New Time Lock": `${configAction.newTimeLock} seconds`,
+        },
+        programId: SQUADS_PROGRAM_ID,
+        programLabel: "Squads Multisig v4",
+      };
+
+    case "AddSpendingLimit": {
+      const slMintInfo = getTokenInfo(configAction.mint);
+      const slDetails: Record<string, string> = {
+        Mint: slMintInfo
+          ? `${configAction.mint} [${slMintInfo.symbol}]`
+          : configAction.mint,
+        Amount: slMintInfo
+          ? `${Number(configAction.amount) / Math.pow(10, slMintInfo.decimals)} ${slMintInfo.symbol} (${configAction.amount.toLocaleString()} raw)`
+          : configAction.amount.toLocaleString(),
+        Period: configAction.period,
+        "Vault Index": configAction.vaultIndex.toString(),
+        "Create Key": configAction.createKey,
+      };
+      for (let i = 0; i < configAction.members.length; i++) {
+        slDetails[`Member ${i + 1}`] = configAction.members[i];
+      }
+      for (let i = 0; i < configAction.destinations.length; i++) {
+        slDetails[`Destination ${i + 1}`] = configAction.destinations[i];
+      }
+      if (configAction.destinations.length === 0) {
+        slDetails["Destinations"] = "(any address)";
+      }
+      return {
+        title: `Add Spending Limit (${slMintInfo?.symbol ?? "tokens"}, ${configAction.period})`,
+        details: slDetails,
+        programId: SQUADS_PROGRAM_ID,
+        programLabel: "Squads Multisig v4",
+      };
+    }
+
+    case "RemoveSpendingLimit":
+      return {
+        title: "Remove Spending Limit",
+        details: {
+          "Spending Limit": configAction.spendingLimit,
+        },
+        programId: SQUADS_PROGRAM_ID,
+        programLabel: "Squads Multisig v4",
+      };
+
+    case "SetRentCollector":
+      return {
+        title: "Set Rent Collector",
+        details: {
+          "Rent Collector": configAction.newRentCollector ?? "(none)",
+        },
+        programId: SQUADS_PROGRAM_ID,
+        programLabel: "Squads Multisig v4",
+      };
+
+    case "Unknown":
+      return {
+        title: `Unknown Config Action (variant ${configAction.variant})`,
+        details: {
+          "Variant": configAction.variant.toString(),
+          "Raw Data": configAction.raw,
+        },
+        programId: SQUADS_PROGRAM_ID,
+        programLabel: "Squads Multisig v4",
+      };
+  }
 }
 
 // ---------------------------------------------------------------------------

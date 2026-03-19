@@ -32,6 +32,7 @@ export {
   type ActionSummary,
   type InstructionSafety,
   type Warning,
+  type ConfigAction,
 } from "./decoder";
 
 // Hash computation
