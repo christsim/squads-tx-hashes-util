@@ -103,6 +103,16 @@ const DISCRIMINATOR_PROPOSAL_REJECT = new Uint8Array([
   246,
   135
 ]);
+const PERMISSION_INITIATE = 1;
+const PERMISSION_VOTE = 2;
+const PERMISSION_EXECUTE = 4;
+function formatPermissions(mask) {
+  const perms = [];
+  if (mask & PERMISSION_INITIATE) perms.push("Initiate");
+  if (mask & PERMISSION_VOTE) perms.push("Vote");
+  if (mask & PERMISSION_EXECUTE) perms.push("Execute");
+  return perms;
+}
 const KNOWN_TOKENS = {
   // Native / Wrapped SOL
   "So11111111111111111111111111111111111111112": { symbol: "SOL", name: "Wrapped SOL", decimals: 9 },
@@ -384,7 +394,8 @@ function decodeMessage(messageBytes) {
       dataHex: bytesToHex(data),
       decoded: (decodedResult == null ? void 0 : decodedResult.decoded) ?? null,
       decodedDetails: decodedResult == null ? void 0 : decodedResult.details,
-      innerInstructions: decodedResult == null ? void 0 : decodedResult.innerInstructions
+      innerInstructions: decodedResult == null ? void 0 : decodedResult.innerInstructions,
+      configActions: decodedResult == null ? void 0 : decodedResult.configActions
     });
   }
   const addressTableLookups = [];
@@ -517,7 +528,7 @@ function decodeSquadsInstruction(data) {
     return { decoded: "proposal_activate" };
   }
   if (matchesBytes(data, DISC_CONFIG_TX_CREATE)) {
-    return { decoded: "config_transaction_create" };
+    return decodeConfigTransactionCreate(data);
   }
   if (matchesBytes(data, DISC_CONFIG_TX_EXECUTE)) {
     return { decoded: "config_transaction_execute" };
@@ -667,6 +678,210 @@ function decodeSquadsVaultMessage(msgBytes) {
     numWritableNonSigners,
     accountKeys,
     instructions
+  };
+}
+function decodeConfigTransactionCreate(data) {
+  const details = {};
+  const configActions = [];
+  if (data.length < 12) {
+    return {
+      decoded: "config_transaction_create (truncated)",
+      details
+    };
+  }
+  const numActions = readU32LE(data, 8);
+  details["Config Actions"] = numActions.toString();
+  let offset = 12;
+  const actionDescriptions = [];
+  for (let i = 0; i < numActions; i++) {
+    if (offset >= data.length) {
+      actionDescriptions.push("(truncated)");
+      break;
+    }
+    const variant = data[offset++];
+    switch (variant) {
+      case 0: {
+        if (offset + 33 > data.length) {
+          actionDescriptions.push("AddMember (truncated)");
+          configActions.push({ type: "Unknown", variant: 0, raw: bytesToHex(data.slice(offset)) });
+          offset = data.length;
+          break;
+        }
+        const memberKey = encode(data.slice(offset, offset + 32));
+        offset += 32;
+        const permMask = data[offset++];
+        const perms = formatPermissions(permMask);
+        configActions.push({
+          type: "AddMember",
+          member: { key: memberKey, permissions: permMask }
+        });
+        actionDescriptions.push(`AddMember`);
+        details[`Action ${i + 1}`] = "Add Member";
+        details[`New Member`] = memberKey;
+        details[`Permissions`] = perms.length > 0 ? perms.join(", ") : `(mask: ${permMask})`;
+        break;
+      }
+      case 1: {
+        if (offset + 32 > data.length) {
+          actionDescriptions.push("RemoveMember (truncated)");
+          configActions.push({ type: "Unknown", variant: 1, raw: bytesToHex(data.slice(offset)) });
+          offset = data.length;
+          break;
+        }
+        const oldMember = encode(data.slice(offset, offset + 32));
+        offset += 32;
+        configActions.push({ type: "RemoveMember", oldMember });
+        actionDescriptions.push(`RemoveMember`);
+        details[`Action ${i + 1}`] = "Remove Member";
+        details[`Member to Remove`] = oldMember;
+        break;
+      }
+      case 2: {
+        if (offset + 2 > data.length) {
+          actionDescriptions.push("ChangeThreshold (truncated)");
+          configActions.push({ type: "Unknown", variant: 2, raw: bytesToHex(data.slice(offset)) });
+          offset = data.length;
+          break;
+        }
+        const newThreshold = data[offset] | data[offset + 1] << 8;
+        offset += 2;
+        configActions.push({ type: "ChangeThreshold", newThreshold });
+        actionDescriptions.push(`ChangeThreshold(${newThreshold})`);
+        details[`Action ${i + 1}`] = "Change Threshold";
+        details[`New Threshold`] = newThreshold.toString();
+        break;
+      }
+      case 3: {
+        if (offset + 4 > data.length) {
+          actionDescriptions.push("SetTimeLock (truncated)");
+          configActions.push({ type: "Unknown", variant: 3, raw: bytesToHex(data.slice(offset)) });
+          offset = data.length;
+          break;
+        }
+        const newTimeLock = readU32LE(data, offset);
+        offset += 4;
+        configActions.push({ type: "SetTimeLock", newTimeLock });
+        actionDescriptions.push(`SetTimeLock(${newTimeLock}s)`);
+        details[`Action ${i + 1}`] = "Set Time Lock";
+        details[`New Time Lock`] = `${newTimeLock} seconds`;
+        break;
+      }
+      case 4: {
+        const minSize = 32 + 1 + 32 + 8 + 1 + 4 + 4;
+        if (offset + minSize > data.length) {
+          actionDescriptions.push("AddSpendingLimit (truncated)");
+          configActions.push({ type: "Unknown", variant: 4, raw: bytesToHex(data.slice(offset)) });
+          offset = data.length;
+          break;
+        }
+        const slCreateKey = encode(data.slice(offset, offset + 32));
+        offset += 32;
+        const slVaultIndex = data[offset++];
+        const slMint = encode(data.slice(offset, offset + 32));
+        offset += 32;
+        const slAmount = readU64LE(data, offset);
+        offset += 8;
+        const slPeriodByte = data[offset++];
+        const periodLabels = ["OneTime", "Day", "Week", "Month"];
+        const slPeriod = periodLabels[slPeriodByte] ?? `Unknown(${slPeriodByte})`;
+        const slMembersLen = readU32LE(data, offset);
+        offset += 4;
+        const slMembers = [];
+        for (let m = 0; m < slMembersLen; m++) {
+          if (offset + 32 > data.length) break;
+          slMembers.push(encode(data.slice(offset, offset + 32)));
+          offset += 32;
+        }
+        const slDestsLen = readU32LE(data, offset);
+        offset += 4;
+        const slDests = [];
+        for (let d = 0; d < slDestsLen; d++) {
+          if (offset + 32 > data.length) break;
+          slDests.push(encode(data.slice(offset, offset + 32)));
+          offset += 32;
+        }
+        const mintInfo = getTokenInfo(slMint);
+        mintInfo ? mintInfo.symbol : "tokens";
+        configActions.push({
+          type: "AddSpendingLimit",
+          createKey: slCreateKey,
+          vaultIndex: slVaultIndex,
+          mint: slMint,
+          amount: slAmount,
+          period: slPeriod,
+          members: slMembers,
+          destinations: slDests
+        });
+        actionDescriptions.push("AddSpendingLimit");
+        details[`Action ${i + 1}`] = "Add Spending Limit";
+        details[`Spending Limit Mint`] = mintInfo ? `${slMint} [${mintInfo.symbol}]` : slMint;
+        details[`Spending Limit Amount`] = mintInfo ? `${Number(slAmount) / Math.pow(10, mintInfo.decimals)} ${mintInfo.symbol} (${slAmount.toLocaleString()} raw)` : slAmount.toLocaleString();
+        details[`Spending Limit Period`] = slPeriod;
+        details[`Spending Limit Vault`] = slVaultIndex.toString();
+        if (slMembers.length > 0) {
+          details[`Spending Limit Members`] = slMembers.length.toString();
+        }
+        if (slDests.length > 0) {
+          details[`Spending Limit Destinations`] = slDests.length.toString();
+        }
+        break;
+      }
+      case 5: {
+        if (offset + 32 > data.length) {
+          actionDescriptions.push("RemoveSpendingLimit (truncated)");
+          configActions.push({ type: "Unknown", variant: 5, raw: bytesToHex(data.slice(offset)) });
+          offset = data.length;
+          break;
+        }
+        const spendingLimit = encode(data.slice(offset, offset + 32));
+        offset += 32;
+        configActions.push({ type: "RemoveSpendingLimit", spendingLimit });
+        actionDescriptions.push("RemoveSpendingLimit");
+        details[`Action ${i + 1}`] = "Remove Spending Limit";
+        details[`Spending Limit`] = spendingLimit;
+        break;
+      }
+      case 6: {
+        if (offset >= data.length) {
+          actionDescriptions.push("SetRentCollector (truncated)");
+          configActions.push({ type: "Unknown", variant: 6, raw: "" });
+          break;
+        }
+        const optionTag = data[offset++];
+        if (optionTag === 1 && offset + 32 <= data.length) {
+          const rentCollector = encode(data.slice(offset, offset + 32));
+          offset += 32;
+          configActions.push({ type: "SetRentCollector", newRentCollector: rentCollector });
+          actionDescriptions.push("SetRentCollector");
+          details[`Action ${i + 1}`] = "Set Rent Collector";
+          details[`Rent Collector`] = rentCollector;
+        } else {
+          configActions.push({ type: "SetRentCollector", newRentCollector: null });
+          actionDescriptions.push("SetRentCollector(none)");
+          details[`Action ${i + 1}`] = "Set Rent Collector";
+          details[`Rent Collector`] = "(none)";
+        }
+        break;
+      }
+      default: {
+        const rest = data.slice(offset);
+        configActions.push({ type: "Unknown", variant, raw: bytesToHex(rest) });
+        actionDescriptions.push(`Unknown(${variant})`);
+        details[`Action ${i + 1}`] = `Unknown config action (variant ${variant})`;
+        offset = data.length;
+        break;
+      }
+    }
+  }
+  const memo = decodeMemoField(data, offset);
+  if (memo.value) {
+    details["Memo"] = memo.value;
+  }
+  const summary = actionDescriptions.join(", ");
+  return {
+    decoded: `config_transaction_create (${summary}${memo.text})`,
+    details,
+    configActions
   };
 }
 function decodeProposalCreate(data) {
@@ -1041,6 +1256,11 @@ function generateTransactionSummary(decoded) {
         if (ix.accounts.length > 0) {
           multisigPda = ix.accounts[0].pubkey;
         }
+        if (ix.configActions && ix.configActions.length > 0) {
+          for (const configAction of ix.configActions) {
+            actions.push(generateConfigActionSummary(configAction));
+          }
+        }
         if (ix.innerInstructions) {
           for (const inner of ix.innerInstructions) {
             actions.push(generateActionSummary(inner));
@@ -1069,16 +1289,18 @@ function generateTransactionSummary(decoded) {
             }
           }
         }
-        if (!ix.innerInstructions || ix.innerInstructions.length === 0) {
-          warnings.push({
-            severity: "danger",
-            message: "Vault transaction has no inner instructions — this is unusual."
-          });
-        } else if (ix.innerInstructions.length > 1) {
-          warnings.push({
-            severity: "info",
-            message: `Vault transaction contains ${ix.innerInstructions.length} inner instructions. Review all of them.`
-          });
+        if (ixName !== "config_transaction_create") {
+          if (!ix.innerInstructions || ix.innerInstructions.length === 0) {
+            warnings.push({
+              severity: "danger",
+              message: "Vault transaction has no inner instructions — this is unusual."
+            });
+          } else if (ix.innerInstructions.length > 1) {
+            warnings.push({
+              severity: "info",
+              message: `Vault transaction contains ${ix.innerInstructions.length} inner instructions. Review all of them.`
+            });
+          }
         }
       } else if (SAFE_INSTRUCTIONS.has(ixName)) {
         outerInstructionSafety.push("safe");
@@ -1194,6 +1416,102 @@ function generateActionSummary(inner) {
     programId: inner.programId,
     programLabel
   };
+}
+function generateConfigActionSummary(configAction) {
+  switch (configAction.type) {
+    case "AddMember": {
+      const perms = formatPermissions(configAction.member.permissions);
+      return {
+        title: "Add Member",
+        details: {
+          "New Member": configAction.member.key,
+          Permissions: perms.length > 0 ? perms.join(", ") : `(mask: ${configAction.member.permissions})`
+        },
+        programId: SQUADS_PROGRAM_ID,
+        programLabel: "Squads Multisig v4"
+      };
+    }
+    case "RemoveMember":
+      return {
+        title: "Remove Member",
+        details: {
+          "Member to Remove": configAction.oldMember
+        },
+        programId: SQUADS_PROGRAM_ID,
+        programLabel: "Squads Multisig v4"
+      };
+    case "ChangeThreshold":
+      return {
+        title: `Change Threshold to ${configAction.newThreshold}`,
+        details: {
+          "New Threshold": configAction.newThreshold.toString()
+        },
+        programId: SQUADS_PROGRAM_ID,
+        programLabel: "Squads Multisig v4"
+      };
+    case "SetTimeLock":
+      return {
+        title: `Set Time Lock to ${configAction.newTimeLock}s`,
+        details: {
+          "New Time Lock": `${configAction.newTimeLock} seconds`
+        },
+        programId: SQUADS_PROGRAM_ID,
+        programLabel: "Squads Multisig v4"
+      };
+    case "AddSpendingLimit": {
+      const slMintInfo = getTokenInfo(configAction.mint);
+      const slDetails = {
+        Mint: slMintInfo ? `${configAction.mint} [${slMintInfo.symbol}]` : configAction.mint,
+        Amount: slMintInfo ? `${Number(configAction.amount) / Math.pow(10, slMintInfo.decimals)} ${slMintInfo.symbol} (${configAction.amount.toLocaleString()} raw)` : configAction.amount.toLocaleString(),
+        Period: configAction.period,
+        "Vault Index": configAction.vaultIndex.toString(),
+        "Create Key": configAction.createKey
+      };
+      for (let i = 0; i < configAction.members.length; i++) {
+        slDetails[`Member ${i + 1}`] = configAction.members[i];
+      }
+      for (let i = 0; i < configAction.destinations.length; i++) {
+        slDetails[`Destination ${i + 1}`] = configAction.destinations[i];
+      }
+      if (configAction.destinations.length === 0) {
+        slDetails["Destinations"] = "(any address)";
+      }
+      return {
+        title: `Add Spending Limit (${(slMintInfo == null ? void 0 : slMintInfo.symbol) ?? "tokens"}, ${configAction.period})`,
+        details: slDetails,
+        programId: SQUADS_PROGRAM_ID,
+        programLabel: "Squads Multisig v4"
+      };
+    }
+    case "RemoveSpendingLimit":
+      return {
+        title: "Remove Spending Limit",
+        details: {
+          "Spending Limit": configAction.spendingLimit
+        },
+        programId: SQUADS_PROGRAM_ID,
+        programLabel: "Squads Multisig v4"
+      };
+    case "SetRentCollector":
+      return {
+        title: "Set Rent Collector",
+        details: {
+          "Rent Collector": configAction.newRentCollector ?? "(none)"
+        },
+        programId: SQUADS_PROGRAM_ID,
+        programLabel: "Squads Multisig v4"
+      };
+    case "Unknown":
+      return {
+        title: `Unknown Config Action (variant ${configAction.variant})`,
+        details: {
+          "Variant": configAction.variant.toString(),
+          "Raw Data": configAction.raw
+        },
+        programId: SQUADS_PROGRAM_ID,
+        programLabel: "Squads Multisig v4"
+      };
+  }
 }
 function hexToBytes(hex) {
   const clean = hex.replace(/\s/g, "").replace(/^0x/i, "");

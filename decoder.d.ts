@@ -23,7 +23,43 @@ export interface DecodedInstruction {
     decoded: string | null;
     decodedDetails?: Record<string, string>;
     innerInstructions?: DecodedInnerInstruction[];
+    configActions?: ConfigAction[];
 }
+export type ConfigAction = {
+    type: "AddMember";
+    member: {
+        key: string;
+        permissions: number;
+    };
+} | {
+    type: "RemoveMember";
+    oldMember: string;
+} | {
+    type: "ChangeThreshold";
+    newThreshold: number;
+} | {
+    type: "SetTimeLock";
+    newTimeLock: number;
+} | {
+    type: "AddSpendingLimit";
+    createKey: string;
+    vaultIndex: number;
+    mint: string;
+    amount: bigint;
+    period: string;
+    members: string[];
+    destinations: string[];
+} | {
+    type: "RemoveSpendingLimit";
+    spendingLimit: string;
+} | {
+    type: "SetRentCollector";
+    newRentCollector: string | null;
+} | {
+    type: "Unknown";
+    variant: number;
+    raw: string;
+};
 /** Inner instruction from a vault_transaction_create embedded message. */
 export interface DecodedInnerInstruction {
     programId: string;
