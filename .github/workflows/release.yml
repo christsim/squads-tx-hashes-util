@@ -62,6 +62,7 @@ jobs:
             dist/squads-tx-hashes.html
             dist/squads-tx-hashes.html.sha256
             dist/squads-decoder.js
+            dist/squads-decoder.js.sha256
 
       - name: Prepare GitHub Pages
         run: cp dist/squads-tx-hashes.html dist/index.html
