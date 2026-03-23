@@ -1548,6 +1548,7 @@ async function hashRawMessage(messageBytes) {
 export {
   KNOWN_PROGRAMS,
   KNOWN_TOKENS,
+  SQUADS_PROGRAM_ID,
   base64ToBytes,
   decode as bs58Decode,
   encode as bs58Encode,
