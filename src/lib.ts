@@ -46,4 +46,5 @@ export {
   getTokenInfo,
   getProgramLabel,
   type TokenInfo,
+  SQUADS_PROGRAM_ID,
 } from "./constants";
